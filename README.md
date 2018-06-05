@@ -29,6 +29,8 @@ Open config-sample.json in your favourite text editor and edit with your own set
     "retries_threshold": 3
 }
 ``` 
+  
+and the save as config.json
 
 `private_key`  
 The active key of your normal witness-owning account used to sign the witness_update operation.
