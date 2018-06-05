@@ -1,0 +1,17 @@
+{
+  "name": "bitshares-witness-monitor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bitsharesjs": "^1.7.6",
+    "chalk": "^2.4.1",
+    "minimist": "^1.2.0",
+    "node-telegram-bot-api": "^0.30.0"
+  }
+}
