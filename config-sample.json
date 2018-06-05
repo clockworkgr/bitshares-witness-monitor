@@ -4,6 +4,7 @@
     "private_key": "",
     "missed_block_threshold": 3,
     "checking_interval": 10,
+    "reset_period": 300,
     "backup_key": "",
     "debug_level": 3,
     "telegram_token": "",

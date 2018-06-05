@@ -9,6 +9,7 @@ let threshold = config.missed_block_threshold;
 let interval = config.checking_interval ;
 let password= config.telegram_password;
 let backupKey = config.backup_key;
+let timeWindow = config.reset_period;
 let witness = config.witness_id;
 let token = config.telegram_token;
 let privKey = config.private_key;
@@ -23,6 +24,7 @@ var admin_id = "";
 var total_missed = 0;
 var start_missed = 0;
 var node_retries=0;
+var window_start=0;
 
 bot.onText(/\/pass (.+)/, (msg, match) => {
 
@@ -56,6 +58,7 @@ bot.onText(/\/reset/, (msg, match) => {
     const chatId = msg.chat.id;
     if (admin_id == chatId) {
         start_missed = total_missed;        
+        window_start=Date.now();
         bot.sendMessage(chatId, "Session missed block counter set to 0.");
     } else {
         bot.sendMessage(chatId, "You need to authenticate first.");
@@ -99,6 +102,18 @@ bot.onText(/\/threshold (.+)/, (msg, match) => {
     }
 
 });
+bot.onText(/\/window (.+)/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    const wind = match[1];
+    if (admin_id == chatId) {
+        timeWindow = wind;
+        bot.sendMessage(chatId, "Missed block reset time window set to: "+timeWindow+"s");
+    } else {
+        bot.sendMessage(chatId, "You need to authenticate first.");
+    }
+
+});
 bot.onText(/\/retries (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
@@ -131,9 +146,9 @@ bot.onText(/\/stats/, (msg, match) => {
         bot.sendMessage(chatId, "Checking interval set to: " + interval + 's.');
         bot.sendMessage(chatId, "Node failed connection attempt notification threshold set to: " + retries);
         bot.sendMessage(chatId, "Missed block threshold set to: "+threshold);
+        bot.sendMessage(chatId, "Missed block reset time window set to: "+timeWindow+"s.");
         bot.sendMessage(chatId, "API node set to: "+apiNode);
         bot.sendMessage(chatId, "Backup signing key set to: "+backupKey);
-
     } else {
         bot.sendMessage(chatId, "You need to authenticate first.");
     }
@@ -176,6 +191,8 @@ bot.onText(/\/switch/, (msg, match) => {
                 tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
                 tr.broadcast();                
                 bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
+                window_start=Date.now();
+                start_missed = total_missed;      
                 logger.log('Signing key updated');
                 Apis.close();
             });
@@ -194,6 +211,7 @@ bot.onText(/\/resume/, (msg, match) => {
 
     if (admin_id == chatId) {
         paused=false;
+        window_start=Date.now();
         try {
             clearTimeout(to);
             to=setTimeout(checkWitness, interval*1000);
@@ -224,9 +242,15 @@ function checkWitness() {
             ]).then((witness) => {
                 if (first) {
                     start_missed = witness[0].total_missed;
+                    window_start=Date.now();
                     first = false;
                 }
+                
                 total_missed = witness[0].total_missed;
+                if (Math.floor((Date.now()-window_start)/1000)>=timeWindow) {
+                    window_start=Date.now();
+                    start_missed=total_missed;
+                }
                 let missed = total_missed - start_missed;
                 witness_account = witness[0].witness_account;
                 logger.log('Total missed blocks: ' + total_missed);
