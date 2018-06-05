@@ -257,7 +257,9 @@ function checkWitness() {
                 logger.log('Missed since health monitor start: ' + missed);
                 if (missed > threshold) {
                     logger.log('Missed blocks since start (' + missed + ') greater than threshold (' + threshold + '). Notifying...');
-                    logger.log('Switching to backup witness server.');
+                    logger.log('Switching to backup witness server.');                    
+                    bot.sendMessage(admin_id, 'Missed blocks since start (' + missed + ') greater than threshold (' + threshold + ').');
+                    bot.sendMessage(admin_id, 'Switching to backup witness server.');
                     let tr = new TransactionBuilder();
                     tr.add_type_operation("witness_update", {
                         fee: {
@@ -274,6 +276,7 @@ function checkWitness() {
                         tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
                         tr.broadcast();
                         logger.log('Signing key updated');
+                        bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
                         first = true;
                         to=setTimeout(checkWitness, interval*1000);                        
                         Apis.close();
