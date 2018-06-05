@@ -33,7 +33,7 @@ Open config-sample.json in your favourite text editor and edit with your own set
 The active key of your normal witness-owning account used to sign the witness_update operation.
 
 `missed_block_threshold`  
-How many blocks must be missed within a 5 min window before the scripts switches your signing key. Recommend to set at 2 or higher since 1 will possibly trigger updates on maintenance intervals (see: https://github.com/bitshares/bitshares-core/issues/504)
+How many blocks must be missed within a `reset_period` sec window before the script switches your signing key. Recommend to set at 2 or higher since 1 will possibly trigger updates on maintenance intervals (see: https://github.com/bitshares/bitshares-core/issues/504)
 
 `checking_interval`  
 How often should the script check for new missed blocks in seconds.
@@ -96,6 +96,10 @@ This will update your telegram access password and will require you to authentic
 `/stats`
 
 This will return the current configuration and statistics of the monitoring session.
+
+`/switch`
+
+This will IMMEDIATELY update your signing key to the currently configured backup key.
 
 `/new_key <BTS_public_signing_key>`
 
