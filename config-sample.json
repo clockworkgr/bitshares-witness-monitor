@@ -7,5 +7,6 @@
     "backup_key": "",
     "debug_level": 3,
     "telegram_token": "",
-    "telegram_password": ""
+    "telegram_password": "",
+    "retries_threshold": 3
 }
