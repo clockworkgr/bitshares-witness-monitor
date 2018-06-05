@@ -90,7 +90,7 @@ Open a chat to your bot and use the following:
 
 `/pass <your_configured_telegram_pass>`
 
-This is required to authenticate. Otherwise none of the dollowing command will work.
+This is required to authenticate. Otherwise none of the following commands will work.
 
 `/changepass <new_password>` 
 
