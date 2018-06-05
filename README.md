@@ -9,6 +9,7 @@ To use, clone the repo (or download the zip).
 ```
 git clone https://github.com/clockworkgr/bitshares-witness-monitor
 cd bitshares-witness-monitor
+npm install
 ```
 
 Open config-sample.json in your favourite text editor and edit with your own settings:
