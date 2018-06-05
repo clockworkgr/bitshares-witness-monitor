@@ -79,7 +79,7 @@ and run as:
 
 instead. 
 
-*NOTE:* In case forever restarst the process, it will start with the DEFAULT config.json you have provided and not with the session-only changes you might have made using the telegram commands below 
+*NOTE:* In case forever restarts the process, it will start with the DEFAULT config.json you have provided and not with the session-only changes you might have made using the telegram commands below.
 
 ## Telegram commands
 
