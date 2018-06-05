@@ -44,7 +44,7 @@ How often should the script check for new missed blocks in seconds.
 `backup_key`  
 The public signing key of your backup witness to be used when switching.
 
-`reset_period` 
+`reset_period`  
 The time after which the missed blocks counter is reset for the session in seconds.
 
 `debug_level`  
