@@ -80,7 +80,7 @@ and run as:
 
 `forever index.js`
 
-instead. 
+instead.
 
 *NOTE:* In case forever restarts the process, it will start with the DEFAULT config.json you have provided and not with the session-only changes you might have made using the telegram commands below.
 
@@ -92,7 +92,7 @@ Open a chat to your bot and use the following:
 
 This is required to authenticate. Otherwise none of the following commands will work.
 
-`/changepass <new_password>` 
+`/changepass <new_password>`
 
 This will update your telegram access password and will require you to authenticate again using `/pass`
 
@@ -124,7 +124,7 @@ This will set the checking interval to every Y seconds.
 
 This will set the time until missed blocks counter is reset to Z seconds.
 
-`/retries N` 
+`/retries N`
 
 This will set the threshold for failed API node connection attempts to N times before notifying you in telegram.
 
