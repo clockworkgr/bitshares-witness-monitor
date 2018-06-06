@@ -25,6 +25,7 @@ var total_missed = 0;
 var start_missed = 0;
 var node_retries=0;
 var window_start=0;
+var checking=false;
 
 bot.onText(/\/pass (.+)/, (msg, match) => {
 
@@ -189,12 +190,14 @@ bot.onText(/\/switch/, (msg, match) => {
 
             tr.set_required_fees().then(() => {
                 tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
-                tr.broadcast();                
+                tr.broadcast();
                 bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
                 window_start=Date.now();
-                start_missed = total_missed;      
+                start_missed = total_missed;
                 logger.log('Signing key updated');
-                Apis.close();
+                if (paused || !checking) {
+                    Apis.close();
+                }
             });
         },() => {
             logger.log('Could not update signing key.');
@@ -231,11 +234,10 @@ var witness_account;
 
 function checkWitness() {
 
-    Apis.instance(apiNode, true).init_promise.then(() => {
-        node_retries=0;
-        if (paused) {            
-            Apis.close();
-        }else{
+    if (!paused) {
+        checking=true;
+        Apis.instance(apiNode, true).init_promise.then(() => {
+            node_retries=0;
             logger.log('Connected to API node: ' + apiNode);
             Apis.instance().db_api().exec('get_objects', [
                 [witness], false
@@ -280,18 +282,19 @@ function checkWitness() {
                         first = true;
                         to=setTimeout(checkWitness, interval*1000);                        
                         Apis.close();
+                        checking=false;
                     });
 
                 } else {
                     logger.log('Status: OK');
                     to=setTimeout(checkWitness, interval*1000);                    
                     Apis.close();
+                    checking=false;
                 }
             });
-        }
-    }, () => {        
-        if (paused){
-        }else{
+        
+        }, () => {        
+        
             node_retries++;
             logger.log('API node unavailable.');
             if (node_retries>retries) {
@@ -299,7 +302,9 @@ function checkWitness() {
                 bot.sendMessage(admin_id, 'Unable to connect to API node for '+node_retries+' times. Please check.');
             }
             to=setTimeout(checkWitness, interval*1000);            
-        }
-        Apis.close();
-    });
+        
+            Apis.close();
+            checking=false;
+        });
+    }
 }
