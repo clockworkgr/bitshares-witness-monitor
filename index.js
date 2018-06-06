@@ -190,14 +190,21 @@ bot.onText(/\/switch/, (msg, match) => {
 
             tr.set_required_fees().then(() => {
                 tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
-                tr.broadcast();
-                bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
-                window_start=Date.now();
-                start_missed = total_missed;
-                logger.log('Signing key updated');
-                if (paused || !checking) {
-                    Apis.close();
-                }
+                tr.broadcast().then(() => {
+                    logger.log('Signing key updated');
+                    bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
+                    window_start=Date.now();
+                    start_missed = total_missed;
+                    if (paused || !checking) {
+                        Apis.close();
+                    }
+                },() => {
+                    logger.log('Could not broadcast update_witness tx.');
+                    bot.sendMessage(chatId, "Could not broadcast update_witness tx. Please check!");                    
+                    if (paused || !checking) {
+                        Apis.close();
+                    }
+                });
             });
         },() => {
             logger.log('Could not update signing key.');
@@ -276,13 +283,21 @@ function checkWitness() {
 
                     tr.set_required_fees().then(() => {
                         tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
-                        tr.broadcast();
-                        logger.log('Signing key updated');
-                        bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
-                        first = true;
-                        to=setTimeout(checkWitness, interval*1000);                        
-                        Apis.close();
-                        checking=false;
+                        tr.broadcast().then(() => {
+                            logger.log('Signing key updated');
+                            bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
+                            first = true;
+                            to=setTimeout(checkWitness, interval*1000);                        
+                            Apis.close();
+                            checking=false;
+                        },() => {
+                            logger.log('Could not broadcast update_witness tx.');
+                            bot.sendMessage(chatId, "Could not broadcast update_witness tx. Please check!");
+                            //first = true;
+                            to=setTimeout(checkWitness, interval*1000);                        
+                            Apis.close();
+                            checking=false;
+                        });
                     });
 
                 } else {
