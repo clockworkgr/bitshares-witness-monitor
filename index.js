@@ -67,7 +67,7 @@ bot.onText(/\/reset/, (msg, match) => {
 
 });
 
-bot.onText(/\/new_key  (.+)/, (msg, match) => {
+bot.onText(/\/new_key (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const key = match[1];
