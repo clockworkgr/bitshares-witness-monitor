@@ -82,6 +82,15 @@ and run as:
 
 instead.
 
+Depending on your environment, you might have to add the --color flag to enable colored logging output as below:
+
+`node index.js --color`
+
+or
+
+`forever index.js --color`
+
+
 *NOTE:* In case forever restarts the process, it will start with the DEFAULT config.json you have provided and not with the session-only changes you might have made using the telegram commands below.
 
 ## Telegram commands
