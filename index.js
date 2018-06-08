@@ -166,9 +166,9 @@ bot.onText(/\/stats/, (msg, match) => {
         bot.sendMessage(chatId, "Checking interval set to: " + interval + 's.\n'+
                                 "Node failed connection attempt notification threshold set to: " + retries+'.\n'+
                                 "Missed block threshold set to: "+threshold+'.\n'+
-                                "Missed block reset time window set to: "+timeWindow+"s."+
+                                "Missed block reset time window set to: "+timeWindow+"s.\n"+
                                 "API node set to: "+apiNode+'.\n'+
-                                "Backup signing key set to: "+backupKey+'.\n'+
+                                "Backup signing key set to: "+backupKey+'\n'+
                                 "Recap time period set to: "+auto_stats+' minutes.\n'+
                                 "Total missed blocks: "+total_missed+'.\n'+
                                 "Missed blocks in current time window: "+(total_missed - start_missed)+'.');
@@ -283,9 +283,9 @@ function checkWitness() {
                         bot.sendMessage(admin_id, "Checking interval set to: " + interval + 's.\n'+
                                                     "Node failed connection attempt notification threshold set to: " + retries+'.\n'+
                                                     "Missed block threshold set to: "+threshold+'.\n'+
-                                                    "Missed block reset time window set to: "+timeWindow+"s."+
+                                                    "Missed block reset time window set to: "+timeWindow+"s.\n"+
                                                     "API node set to: "+apiNode+'.\n'+
-                                                    "Backup signing key set to: "+backupKey+'.\n'+
+                                                    "Backup signing key set to: "+backupKey+'\n'+
                                                     "Recap time period set to: "+auto_stats+' minutes.\n'+
                                                     "Total missed blocks: "+total_missed+'.\n'+
                                                     "Missed blocks in current time window: "+(total_missed - start_missed)+'.');
