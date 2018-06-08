@@ -15,6 +15,8 @@ let witness = config.witness_id;
 let token = config.telegram_token;
 let privKey = config.private_key;
 let retries = config.retries_threshold;
+let auto_stats = config.recap_time;
+
 let paused = false;
 let pKey = PrivateKey.fromWif(privKey);
 let logger = new Logger(config.debug_level);
@@ -104,6 +106,22 @@ bot.onText(/\/threshold (.+)/, (msg, match) => {
     }
 
 });
+bot.onText(/\/recap (.+)/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    const recap = match[1];
+    if (admin_id == chatId) {
+        auto_stats = recap;
+        if (auto_stats>0) {
+            bot.sendMessage(chatId, "Recap time period set to: "+auto_stats+" minutes.");
+        }else{
+            bot.sendMessage(chatId, "Recap disabled.");
+        }
+    } else {
+        bot.sendMessage(chatId, "You need to authenticate first.");
+    }
+
+});
 bot.onText(/\/window (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
@@ -145,12 +163,15 @@ bot.onText(/\/stats/, (msg, match) => {
     const chatId = msg.chat.id;
 
     if (admin_id == chatId) {
-        bot.sendMessage(chatId, "Checking interval set to: " + interval + 's.');
-        bot.sendMessage(chatId, "Node failed connection attempt notification threshold set to: " + retries);
-        bot.sendMessage(chatId, "Missed block threshold set to: "+threshold);
-        bot.sendMessage(chatId, "Missed block reset time window set to: "+timeWindow+"s.");
-        bot.sendMessage(chatId, "API node set to: "+apiNode);
-        bot.sendMessage(chatId, "Backup signing key set to: "+backupKey);
+        bot.sendMessage(chatId, "Checking interval set to: " + interval + 's.\n'+
+                                "Node failed connection attempt notification threshold set to: " + retries+'.\n'+
+                                "Missed block threshold set to: "+threshold+'.\n'+
+                                "Missed block reset time window set to: "+timeWindow+"s."+
+                                "API node set to: "+apiNode+'.\n'+
+                                "Backup signing key set to: "+backupKey+'.\n'+
+                                "Recap time period set to: "+auto_stats+' minutes.\n'+
+                                "Total missed blocks: "+total_missed+'.\n'+
+                                "Missed blocks in current time window: "+(total_missed - start_missed)+'.');
     } else {
         bot.sendMessage(chatId, "You need to authenticate first.");
     }
@@ -239,6 +260,7 @@ logger.log('Starting witness health monitor');
 let first = true;
 checkWitness();
 var witness_account;
+var lastupdate=0;
 
 function checkWitness() {
 
@@ -255,7 +277,20 @@ function checkWitness() {
                     window_start=Date.now();
                     first = false;
                 }
-                
+                if ((admin_id!=0) && (auto_stats>0)) {
+                    if (Math.floor((Date.now()-lastupdate)/60000)>=auto_stats) {
+                        lastupdate=Date.now();
+                        bot.sendMessage(admin_id, "Checking interval set to: " + interval + 's.\n'+
+                                                    "Node failed connection attempt notification threshold set to: " + retries+'.\n'+
+                                                    "Missed block threshold set to: "+threshold+'.\n'+
+                                                    "Missed block reset time window set to: "+timeWindow+"s."+
+                                                    "API node set to: "+apiNode+'.\n'+
+                                                    "Backup signing key set to: "+backupKey+'.\n'+
+                                                    "Recap time period set to: "+auto_stats+' minutes.\n'+
+                                                    "Total missed blocks: "+total_missed+'.\n'+
+                                                    "Missed blocks in current time window: "+(total_missed - start_missed)+'.');
+                    }
+                }
                 total_missed = witness[0].total_missed;
                 if (Math.floor((Date.now()-window_start)/1000)>=timeWindow) {
                     window_start=Date.now();
@@ -264,9 +299,9 @@ function checkWitness() {
                 let missed = total_missed - start_missed;
                 witness_account = witness[0].witness_account;
                 logger.log('Total missed blocks: ' + total_missed);
-                logger.log('Missed since health monitor start: ' + missed);
+                logger.log('Missed since time window start: ' + missed);
                 if (missed > threshold) {
-                    logger.log('Missed blocks since start (' + missed + ') greater than threshold (' + threshold + '). Notifying...');
+                    logger.log('Missed blocks since time window start (' + missed + ') greater than threshold (' + threshold + '). Notifying...');
                     logger.log('Switching to backup witness server.');                    
                     bot.sendMessage(admin_id, 'Missed blocks since start (' + missed + ') greater than threshold (' + threshold + ').');
                     bot.sendMessage(admin_id, 'Switching to backup witness server.');

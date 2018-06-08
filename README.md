@@ -22,6 +22,7 @@ Open config-sample.json in your favourite text editor and edit with your own set
     "missed_block_threshold": 3,
     "checking_interval": 10,
     "backup_key": "BTSXXXXXXXXXXXXXXXXXX",
+    "recap_time": 60,
     "reset_period": 300
     "debug_level": 3,
     "telegram_token": "<telegram_access_token>",
@@ -43,6 +44,9 @@ How often should the script check for new missed blocks in seconds.
 
 `backup_key`  
 The public signing key of your backup witness to be used when switching.
+
+`recap_time`  
+The interval in minutes on which bot will auto-notify telegram user of latest stats (if authenticated).
 
 `reset_period`  
 The time after which the missed blocks counter is reset for the session in seconds.
@@ -132,6 +136,10 @@ This will set the checking interval to every Y seconds.
 `/window Z`
 
 This will set the time until missed blocks counter is reset to Z seconds.
+
+`/recap T`
+
+This will set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.
 
 `/retries N`
 

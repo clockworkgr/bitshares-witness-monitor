@@ -6,6 +6,7 @@
     "checking_interval": 10,
     "reset_period": 300,
     "backup_key": "",
+    "recap_time": 60,
     "debug_level": 3,
     "telegram_token": "",
     "telegram_password": "",
