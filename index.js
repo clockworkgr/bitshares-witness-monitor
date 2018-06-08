@@ -163,15 +163,17 @@ bot.onText(/\/stats/, (msg, match) => {
     const chatId = msg.chat.id;
 
     if (admin_id == chatId) {
-        bot.sendMessage(chatId, "Checking interval: `" + interval + 's`\n'+
+        bot.sendMessage(chatId, "Checking interval: `" + interval + ' sec`\n'+
                                 "Node failed connection attempt notification threshold: `" + retries+'`\n'+
                                 "Missed block threshold: `"+threshold+'`\n'+
-                                "Missed block reset time window: `"+timeWindow+"s`\n"+
+                                "Missed block reset time window: `"+timeWindow+" sec`\n"+
                                 "API node: `"+apiNode+'`\n'+
                                 "Backup signing key: `"+backupKey+'`\n'+
-                                "Recap time period: `"+auto_stats+' minutes`\n'+
+                                "Recap time period: `"+auto_stats+' min`\n'+
                                 "Total missed blocks: `"+total_missed+'`\n'+
-                                "Missed blocks in current time window: `"+(total_missed - start_missed)+'`');
+                                "Missed blocks in current time window: `"+(total_missed - start_missed)+'`',{
+                                    parse_mode: "Markdown"
+                                });
     } else {
         bot.sendMessage(chatId, "You need to authenticate first.");
     }
@@ -280,15 +282,17 @@ function checkWitness() {
                 if ((admin_id!=0) && (auto_stats>0)) {
                     if (Math.floor((Date.now()-lastupdate)/60000)>=auto_stats) {
                         lastupdate=Date.now();
-                        bot.sendMessage(admin_id, "Checking interval: `" + interval + 's`\n'+
+                        bot.sendMessage(admin_id, "Checking interval: `" + interval + ' sec`\n'+
                                                     "Node failed connection attempt notification threshold: `" + retries+'`\n'+
                                                     "Missed block threshold: `"+threshold+'`\n'+
-                                                    "Missed block reset time window: `"+timeWindow+"s`\n"+
+                                                    "Missed block reset time window: `"+timeWindow+" sec`\n"+
                                                     "API node: `"+apiNode+'`\n'+
                                                     "Backup signing key: `"+backupKey+'`\n'+
-                                                    "Recap time period: `"+auto_stats+' minutes`\n'+
+                                                    "Recap time period: `"+auto_stats+' min`\n'+
                                                     "Total missed blocks: `"+total_missed+'`\n'+
-                                                    "Missed blocks in current time window: `"+(total_missed - start_missed)+'`');
+                                                    "Missed blocks in current time window: `"+(total_missed - start_missed)+'`',{
+                                                        parse_mode: "Markdown"
+                                                    });
                     }
                 }
                 total_missed = witness[0].total_missed;
