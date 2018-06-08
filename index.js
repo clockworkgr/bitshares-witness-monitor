@@ -1,7 +1,8 @@
+process.env["NTBA_FIX_319"] = 1;
+const TelegramBot = require('node-telegram-bot-api');
 const Logger = require('./lib/Logger.js');
 const {Apis} = require('bitsharesjs-ws');
 const {PrivateKey,TransactionBuilder} = require('bitsharesjs');
-const TelegramBot = require('node-telegram-bot-api');
 const config = require('./config.json');
 
 let apiNode = config.api_node;
