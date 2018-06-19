@@ -12,6 +12,8 @@ cd bitshares-witness-monitor
 npm install
 ```
 
+*Note*: To avoid installing Node, see below for Docker instructions.
+
 Open config-sample.json in your favourite text editor and edit with your own settings:
 
 ```
@@ -96,6 +98,15 @@ or
 
 
 *NOTE:* In case forever restarts the process, it will start with the DEFAULT config.json you have provided and not with the session-only changes you might have made using the telegram commands below.
+
+Alternatively you can run it through Docker:
+
+```
+docker build . -t bistshares-witness-monitor:latest
+docker run bistshares-witness-monitor:latest -v ./config.json:/bitshares-witness-monitor/config.json
+```
+
+This will build the image, then run it with `./config.json` file mounted in the image.
 
 ## Telegram commands
 
