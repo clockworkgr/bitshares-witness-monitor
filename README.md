@@ -102,8 +102,8 @@ or
 Alternatively you can run it through Docker:
 
 ```
-docker build . -t bistshares-witness-monitor:latest
-docker run bistshares-witness-monitor:latest -v ./config.json:/bitshares-witness-monitor/config.json
+docker build . -t bitshares-witness-monitor:latest
+docker run bitshares-witness-monitor:latest -v ./config.json:/bitshares-witness-monitor/config.json
 ```
 
 This will build the image, then run it with `./config.json` file mounted in the image.
