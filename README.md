@@ -47,6 +47,9 @@ and then save as config.json
 | `telegram_token`  | The telegram access token for your notifications bot. You can create one with [BotFather](https://telegram.me/BotFather) |
 | `telegram_password`  | Your chosen access password through telegram. |
 | `retries_threshold`  | Number of failed connections to API node before the bot notifies you on telegram. |
+| `feeds_to_check`| Array of assets symbols where the price publication should be checked. |
+| `feed_publication_threshold` | How many minutes before a feed is considered as missing. |
+| `feed_checking_interval` | How often should the script check for unpublished feeds. | 
 
 ## Running
 
@@ -103,9 +106,12 @@ Open a chat to your bot and use the following:
 - `/window Z` : Set the time until missed blocks counter is reset to Z seconds.
 - `/recap T` : Set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.
 - `/retries N` : Set the threshold for failed API node connection attempts to N times before notifying you in telegram.
--  `/reset` : Reset the missed blocks counter in the current time-window.
--  `/pause` : Pause monitoring.
--  `/resume`: Resume monitoring.
+- `/feed_publication_threshold X`: Set the feed threshold to X minutes.
+- `/feed_checking_interval I`: Set the interval of publication feed check to I minutes.
+- `/feeds <symbol1> <symbol2> <symbol3> ...`: Set the feeds to check to the provided list.
+- `/reset` : Reset the missed blocks counter in the current time-window.
+- `/pause` : Pause monitoring.
+- `/resume`: Resume monitoring.
 
 
 Send this to @BotFather `/setcommands` to get completion on commands:
@@ -124,6 +130,9 @@ interval - Set the checking interval
 window - Set the time until missed blocks counter is reset
 recap - Set the auto-notification interval of latest stats
 retries - Set the threshold for failed API node connection attempts 
+feed_publication_threshold - Set the feed threshold
+feed_checking_interval - Set the interval of publication feed check
+feeds - Set the feeds to check
 reset - Reset the missed blocks counter
 pause - Pause monitoring
 resume - Resume monitoring
