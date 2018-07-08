@@ -80,6 +80,32 @@ bot.on('polling_error', (error) => {
     logger.error(error);
 });
 
+
+bot.onText(/\/start/, (msg) => {
+    bot.sendMessage(msg.from.id, 'Hello, please authentificate first with `/pass`.', 
+        { parse_mode: "Markdown" });
+});
+
+bot.onText(/\/help/, (msg) => {
+    bot.sendMessage(msg.from.id, 
+`\`/pass <your_configured_telegram_pass>\` : Required to authenticate, otherwise no command will work.
+\`/changepass <new_password>\`: Update your telegram access password and requires you to authenticate again using \`/pass\`
+\`/stats\`: Return the current configuration and statistics of the monitoring session.
+\`/switch\`: IMMEDIATELY update your signing key to the currently configured backup key.
+\`/new_key <BTS_public_signing_key>\`: Set a new backup key in place of the configured one.
+\`/new_node wss://<api_node_url>\`: Set a new API node to connect to.
+\`/threshold X\`: Set the missed block threshold before updating signing key to X blocks.
+\`/interval Y\`: Set the checking interval to every Y seconds.
+\`/interval Y\`: Set the checking interval to every Y seconds.
+\`/window Z\` : Set the time until missed blocks counter is reset to Z seconds.
+\`/recap T\` : Set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.
+\`/retries N\` : Set the threshold for failed API node connection attempts to N times before notifying you in telegram.
+\`/reset\` : Reset the missed blocks counter in the current time-window.
+\`/pause\` : Pause monitoring.
+\`/resume\`: Resume monitoring.`, 
+        { parse_mode: "Markdown" });
+});
+
 bot.onText(/\/pass (.+)/, (msg, match) => {
 
     const chatId = msg.from.id;
