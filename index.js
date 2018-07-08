@@ -4,6 +4,7 @@ const Logger = require('./lib/Logger.js');
 const {Apis} = require('bitsharesjs-ws');
 const {PrivateKey,TransactionBuilder} = require('bitsharesjs');
 const config = require('./config.json');
+const moment = require('moment');
 
 const logger = new Logger(config.debug_level);
 const bot = new TelegramBot(config.telegram_token, {polling: true});
@@ -15,10 +16,12 @@ var admin_id = null;
 var total_missed = null;
 var start_missed = null;
 var node_retries = 0;
-var window_start = 0;
+var window_start = null;
 var checking = false;
 var witness_account;
-var lastupdate = 0;
+var last_recap_send = null;
+var last_publication_times = null;
+var last_feed_check = null;
 
 function isAuthenticated(chatId) {
     if (admin_id != chatId) {
@@ -30,7 +33,7 @@ function isAuthenticated(chatId) {
 
 function reset_missed_block_window() {
     start_missed = total_missed;        
-    window_start = Date.now();
+    window_start = moment();
 }
 
 function update_signing_key(recipient_id) {
@@ -62,17 +65,20 @@ function update_signing_key(recipient_id) {
 }
 
 function send_recap(recipient_id) {
-    bot.sendMessage(recipient_id, `Checking interval: \`${config.checking_interval} sec\`
-Node failed connection attempt notification threshold: \`${config.retries_threshold}\`
-Missed block threshold: \`${config.missed_block_threshold}\`
-Missed block reset time window: \`${config.reset_period} sec\`
-API node: \`${config.api_node}\`
-Backup signing key: \`${config.backup_key}\`
-Recap time period: \`${config.recap_time} min\`
-Total missed blocks: \`${total_missed}\`
-Missed blocks in current time window: \`${total_missed - start_missed}\``,{
-            parse_mode: "Markdown"
-        });
+    const stats = [
+        `Checking interval: \`${config.checking_interval} sec\``,
+        `Node failed connection attempt notification threshold: \`${config.retries_threshold}\``,
+        `Missed block threshold: \`${config.missed_block_threshold}\``,
+        `Missed block reset time window: \`${config.reset_period} sec\``,
+        `API node: \`${config.api_node}\``,
+        `Backup signing key: \`${config.backup_key}\``,
+        `Recap time period: \`${config.recap_time} min\``,
+        `Total missed blocks: \`${total_missed}\``,
+        `Missed blocks in current time window: \`${total_missed - start_missed}\``,
+        `Feeds to check: \`${config.feeds_to_check}\``,
+        `Last publication times: \`${last_publication_times}\``
+    ]
+    bot.sendMessage(recipient_id, stats.join('\n'), { parse_mode: 'Markdown' });
 
 }
 
@@ -261,8 +267,7 @@ bot.onText(/\/switch/, (msg, match) => {
         Apis.instance(config.api_node, true).init_promise.then(() => {
             return update_signing_key(chatId);
         }).catch(() => {
-            logger.log('Could not update signing key.');
-            bot.sendMessage(chatId, 'Could not update signing key. Please check!');
+            notify(admin_id, 'Could not update signing key.');
         }).then(() => {
             if (paused || !checking) {
                 return Apis.close();
@@ -277,7 +282,7 @@ bot.onText(/\/resume/, (msg, match) => {
 
     if (isAuthenticated(chatId)) {
         paused = false;
-        window_start = Date.now();
+        window_start = moment();
         try {
             clearTimeout(check_witness_promise);
         } finally {
@@ -289,6 +294,71 @@ bot.onText(/\/resume/, (msg, match) => {
 
 });
 
+function notify(recipient_id, msg) {
+    logger.log(msg);
+    if (recipient_id != null) {
+        bot.setMessage(recipient_id, msg);
+    }
+}
+
+function find_last_publication_time(dynamic_assets_data, witness_account) {
+    return dynamic_assets_data.map(dynamic_assets_data => {
+        for (const feed of dynamic_assets_data['feeds']) {
+            if (feed[0] == witness_account) {
+                return feed[1][0];
+            }
+        }
+        return null;
+    });
+}
+
+function check_publication_feeds() {
+    const has_no_feed_check_configured = !('feeds_to_check' in config) || config.feeds_to_check.length == 0;
+    const is_not_time_to_check_feeds = last_feed_check != null && moment().diff(last_feed_check, 'minutes') < config.feed_checking_interval
+    if (has_no_feed_check_configured || is_not_time_to_check_feeds) {
+        return Promise.resolve();
+    } 
+
+    return Apis.instance().db_api().exec('lookup_asset_symbols', [config.feeds_to_check])
+        .then((assets) => {
+            const dynamic_asset_data_ids = assets.map(a => a['bitasset_data_id']);
+            return Apis.instance().db_api().exec('get_objects', [dynamic_asset_data_ids]);
+        })
+        .then(dynamic_assets_data => {
+            last_feed_check = moment();
+            last_publication_times = find_last_publication_time(dynamic_assets_data, witness_account);
+            const formatted_result = config.feeds_to_check.map((x, i) => `${x} (${last_publication_times[i]})`)
+            logger.log(`Publication times: ${formatted_result.join(', ')}`);
+            for (let i = 0; i < config.feeds_to_check.length; ++i) {
+                if (last_publication_times[i] == null) {
+                    notify(admin_id, `No publication found for ${config.feeds_to_check[i]}.`);
+                } else {
+                    const minutes_since_last_publication = moment.utc().diff(moment.utc(last_publication_times[i]), 'minutes')
+                    if (minutes_since_last_publication > config.feed_publication_threshold) {
+                        notify(admin_id, `More than ${config.feed_publication_threshold} minutes elapsed since last publication of ${config.feeds_to_check[i]}.`);
+                        notify(admin_id, `Last publication happened at ${moment.utc(last_publication_times[i]).local().format()}, ${minutes_since_last_publication} minutes ago.`);
+                    }
+                }
+            }
+        });
+
+}
+
+function check_missed_blocks() {
+    let missed = total_missed - start_missed;
+    logger.log('Total missed blocks: ' + total_missed);
+    logger.log('Missed since time window start: ' + missed);
+    if (missed > config.missed_block_threshold) {
+        notify(admin_id, `Missed blocks since start (${missed}) greater than threshold (${config.missed_block_threshold}).`);
+        notify(admin_id, 'Switching to backup witness server.');
+        return update_signing_key();
+    } else {
+        logger.log('Status: OK');
+    }
+    return Promise.resolve();
+}
+
+
 logger.log('Starting witness health monitor');
 checkWitness();
 
@@ -299,45 +369,31 @@ function checkWitness() {
         Apis.instance(config.api_node, true).init_promise.then(() => {
             node_retries = 0;
             logger.log('Connected to API node: ' + config.api_node);
-            return Apis.instance().db_api().exec('get_objects', [
-                [config.witness_id], false
-            ]).then((witness) => {
+            return Apis.instance().db_api().exec('get_objects', [[config.witness_id]]).then((witness) => {
                 witness_account = witness[0].witness_account;
                 total_missed = witness[0].total_missed;
 
-                const should_reset_window = Math.floor((Date.now() - window_start) / 1000) >= config.reset_period 
+                const should_reset_window = moment().diff(window_start, 'seconds') >= config.reset_period 
                 if (start_missed === null || should_reset_window) {
                     reset_missed_block_window()
                 }
 
                 if ((admin_id != null) && (config.recap_time > 0)) {
-                    if (Math.floor((Date.now() - lastupdate) / 60000) >= config.recap_time) {
-                        lastupdate = Date.now();
+                    if (moment().diff(last_recap_send, 'minutes') >= config.recap_time) {
+                        last_recap_send = moment();
                         send_recap(admin_id);
                     }
                 }
 
-                let missed = total_missed - start_missed;
-                logger.log('Total missed blocks: ' + total_missed);
-                logger.log('Missed since time window start: ' + missed);
-                if (missed > config.missed_block_threshold) {
-                    logger.log(`Missed blocks since time window start (${missed}) greater than threshold (${config.missed_block_threshold}). Notifying...`);
-                    logger.log('Switching to backup witness server.');                    
-                    bot.sendMessage(admin_id, `Missed blocks since start (${missed}) greater than threshold (${config.missed_block_threshold}).`);
-                    bot.sendMessage(admin_id, 'Switching to backup witness server.');
-                    return update_signing_key();
-                } else {
-                    logger.log('Status: OK');
-                }
+                return Promise.all([check_missed_blocks(), check_publication_feeds()]);
             });
         
-        }).catch(() => {        
-
+        }).catch((error) => {        
+            console.log(JSON.stringify(error, null, 4));
             node_retries++;
             logger.log('API node unavailable.');
             if (node_retries > config.retries_threshold) {
-                logger.log('Unable to connect to API node for ' + node_retries + ' times. Notifying...');
-                bot.sendMessage(admin_id, 'Unable to connect to API node for ' + node_retries + ' times. Please check.');
+                notify(admin_id, 'Unable to connect to API node for ' + node_retries + ' times.');
             }
         }).then(() => {
             check_witness_promise = setTimeout(checkWitness, config.checking_interval * 1000);            
