@@ -8,12 +8,9 @@ const WitnessMonitor = require('./lib/WitnessMonitor.js')
 const logger = new Logger(config.debug_level);
 const bot = new TelegramBot(config.telegram_token, {polling: true});
 
-var admin_id = null;
-var last_recap_send = null;
-
-function isAuthenticated(chatId) {
-    if (admin_id != chatId) {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+function checkAuthorization(chatId) {
+    if (config.telegram_authorized_users.includes(chatId)) {
+        bot.sendMessage(chatId, `You (${chatId}) are not authorized.`);
         return false;
     }
     return true;
@@ -46,7 +43,7 @@ function send_settings(recipient_id) {
         `Feed publication treshold: \`${config.feed_publication_threshold} min\``,
         `Feed check interval: \`${config.feed_checking_interval} min\``,
     ];
-    bot.setMessage(chatId, settings.join('\n'), { parse_mode: 'Markdown' })
+    bot.sendMessage(recipient_id, settings.join('\n'), { parse_mode: 'Markdown' })
 }
 
 bot.on('polling_error', (error) => {
@@ -55,14 +52,18 @@ bot.on('polling_error', (error) => {
 
 
 bot.onText(/\/start/, (msg) => {
-    bot.sendMessage(msg.from.id, 'Hello, please authentificate first with `/pass`.', 
-        { parse_mode: "Markdown" });
+
+    const chatId = msg.from.id;
+
+    if (config.telegram_authorized_users.includes(chatId)) {
+        bot.sendMessage(chatId, `Hello ${msg.from.first_name}, type /help to get the list of commands.`);
+    } else {
+        bot.sendMessage(chatId, `Hello ${msg.from.first_name}, sorry but there is nothing for you here.`);
+    }
 });
 
 bot.onText(/\/help/, (msg) => {
     const help = [
-        `\`/pass <your_configured_telegram_pass>\` : Required to authenticate, otherwise no command will work.`,
-        `\`/changepass <new_password>\`: Update your telegram access password and requires you to authenticate again using \`/pass\``,
         `\`/stats\`: Return the current configuration and statistics of the monitoring session.`,
         `\`/switch\`: IMMEDIATELY update your signing key to the currently configured backup key.`,
         `\`/new_key <BTS_public_signing_key>\`: Set a new backup key in place of the configured one.`,
@@ -83,38 +84,11 @@ bot.onText(/\/help/, (msg) => {
     bot.sendMessage(msg.from.id, help.join('\n'), { parse_mode: 'Markdown' });
 });
 
-bot.onText(/\/pass (.+)/, (msg, match) => {
-
-    const chatId = msg.from.id;
-    const pass = match[1];
-
-    if (pass == config.telegram_password) {
-        admin_id = chatId;
-        bot.sendMessage(chatId, `Password accepted. New admin is ${admin_id}`);
-    } else {
-        bot.sendMessage(chatId, 'Password incorrect.');
-    }
-
-});
-
-bot.onText(/\/changepass (.+)/, (msg, match) => {
-
-    const chatId = msg.from.id;
-    const pass = match[1];
-
-    if (isAuthenticated(chatId)) {
-        config.telegram_password = pass;
-        bot.sendMessage(chatId, 'Password changed. Please authenticate again with /pass <new-password>.');
-        admin_id = null;
-    }
-
-});
-
 bot.onText(/\/reset/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         witness_monitor.reset_missed_block_window();
         bot.sendMessage(chatId, 'Session missed block counter set to 0.');
     }
@@ -126,7 +100,7 @@ bot.onText(/\/new_key (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const key = match[1];
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.backup_key = key;
         bot.sendMessage(chatId, `Backup signing key set to: ${config.backup_key}`);
     }
@@ -138,7 +112,7 @@ bot.onText(/\/new_node (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const node = match[1];
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.api_node = node;
         bot.sendMessage(chatId, `API node set to: ${config.api_node}`);
     }
@@ -150,7 +124,7 @@ bot.onText(/\/threshold (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const thresh = match[1];
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.missed_block_threshold = thresh;
         bot.sendMessage(chatId, `Missed block threshold set to: ${config.missed_block_threshold}`);
     }
@@ -162,7 +136,7 @@ bot.onText(/\/recap (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const recap = match[1];
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.recap_time = recap;
         if (config.recap_time > 0) {
             bot.sendMessage(chatId, `Recap time period set to: ${config.recap_time} minutes.`);
@@ -177,7 +151,7 @@ bot.onText(/\/window (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const wind = match[1];
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.reset_period = wind;
         bot.sendMessage(chatId, `Missed block reset time window set to: ${config.reset_period}s`);
     }
@@ -189,7 +163,7 @@ bot.onText(/\/retries (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const ret = match[1];
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.retries_threshold = ret;
         bot.sendMessage(chatId, `Failed node connection attempt notification threshold set to: ${config.retries_threshold}`);
     }
@@ -201,7 +175,7 @@ bot.onText(/\/interval (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const new_int = match[1];
     
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.checking_interval = new_int;
         bot.sendMessage(chatId, `Checking interval set to: ${config.checking_interval}s.`);
     }
@@ -212,7 +186,7 @@ bot.onText(/\/stats/, (msg, match) => {
 
     const chatId = msg.chat.id;
     
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         send_stats(chatId);
     }
 });
@@ -221,7 +195,7 @@ bot.onText(/\/settings/, (msg, match) => {
 
     const chatId = msg.chat.id;
     
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         send_settings(chatId);
     }
     
@@ -232,7 +206,7 @@ bot.onText(/\/feed_checking_interval (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const new_int = match[1];
     
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.feed_checking_interval = new_int;
         witness_monitor.reset_feed_check();
         bot.sendMessage(chatId, `Feed checking interval set to: ${config.feed_checking_interval}m.`);
@@ -245,7 +219,7 @@ bot.onText(/\/feed_publication_threshold (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const new_threshold = match[1];
     
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.feed_publication_threshold = new_threshold;
         witness_monitor.reset_feed_check();
         bot.sendMessage(chatId, `Feed publication threshold set to: ${config.feed_publication_threshold}m.`);
@@ -258,7 +232,7 @@ bot.onText(/\/feeds (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const new_feeds = match[1].split(' ');
     
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         config.feeds_to_check = new_feeds;
         witness_monitor.reset_feed_check();
         bot.sendMessage(chatId, `Feeds to check set to: ${config.feeds_to_check}.`);
@@ -270,7 +244,7 @@ bot.onText(/\/pause/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         witness_monitor.pause();
         bot.sendMessage(chatId, 'Witness monitoring paused. Use /resume to resume monitoring.');
     }
@@ -281,42 +255,39 @@ bot.onText(/\/switch/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         bot.sendMessage(chatId, 'Attempting to update signing key...');
         witness_monitor.force_update_signing_key();
     }
 
 });
+
 bot.onText(/\/resume/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (isAuthenticated(chatId)) {
+    if (checkAuthorization(chatId)) {
         witness_monitor.resume();
         bot.sendMessage(chatId, 'Witness monitoring resumed.');
     }
 
 });
 
-
 const witness_monitor = new WitnessMonitor(config, logger);
-witness_monitor.on('started', () => {
-    if (admin_id != null) {
-        bot.sendMessage(admin_id, 'Bot (re)started.');
-        send_settings(admin_id);
-    }
-});
-witness_monitor.on('notify', (msg) => {
-    if (admin_id != null) {
-        bot.sendMessage(admin_id, msg);
-    }
-});
-witness_monitor.on('checked', () => {
-    if ((admin_id != null) && (config.recap_time > 0)) {
-        if (moment().diff(last_recap_send, 'minutes') >= config.recap_time) {
+var last_recap_send = null;
+for (let user_id of config.telegram_authorized_users) {
+    witness_monitor.on('started', () => {
+        bot.sendMessage(user_id, 'Bot (re)started.');
+        send_settings(user_id);
+    });
+    witness_monitor.on('notify', (msg) => {
+        bot.sendMessage(user_id, msg);
+    });
+    witness_monitor.on('checked', () => {
+        if (config.recap_time > 0 && moment().diff(last_recap_send, 'minutes') >= config.recap_time) {
             last_recap_send = moment();
-            send_stats(admin_id);
+            send_stats(user_id);
         }
-    }
-});
+    });
+}
 witness_monitor.start_monitoring();

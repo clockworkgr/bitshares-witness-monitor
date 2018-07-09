@@ -9,6 +9,9 @@
     "recap_time": 60,
     "debug_level": 3,
     "telegram_token": "",
-    "telegram_password": "",
-    "retries_threshold": 3
+    "telegram_authorized_users": [],
+    "retries_threshold": 3,
+    "feeds_to_check" : [],
+    "feed_publication_threshold": 60,
+    "feed_checking_interval": 10
 }
