@@ -5,7 +5,7 @@
     "missed_block_threshold": 3,
     "checking_interval": 10,
     "reset_period": 300,
-    "backup_key": "",
+    "witness_signing_keys": [],
     "recap_time": 60,
     "debug_level": 3,
     "telegram_token": "",

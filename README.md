@@ -24,7 +24,7 @@ Open config-sample.json in your favourite text editor and edit with your own set
     "missed_block_threshold": 3,
     "checking_interval": 10,
     "reset_period": 300,
-    "backup_key": "BTSXXXXXXXXXXXXXXXXXX",
+    "witness_signing_keys": [ "BTSXXXXXXXXXXXXXXXXXX", "BTSYYYYYYYYYYYYYYY"],
     "recap_time": 60,
     "debug_level": 3,
     "telegram_token": "<telegram_access_token>",
@@ -40,10 +40,12 @@ and then save as config.json
 
 | Key | Description |
 | --- | --- |
+| `witness_id` | The id of the witness to monitor. |
+| `api_node` | Bitshares Websocket url to use to retrieve blockchain information. |
 | `private_key`  | The active key of your normal witness-owning account used to sign the witness_update operation. |
 | `missed_block_threshold`  | How many blocks must be missed within a `reset_period` sec window before the script switches your signing key. Recommend to set at 2 or higher since 1 will possibly trigger updates on maintenance intervals (see [bitshares-core#504](https://github.com/bitshares/bitshares-core/issues/504)). |
 | `checking_interval` | How often should the script check for new missed blocks in seconds. |
-| `backup_key`  | The public signing key of your backup witness to be used when switching. |
+| `witness_signing_keys`  | All the public keys of your witness, to switch key if too many blocks are missed. |
 | `recap_time`  | The interval in minutes on which bot will auto-notify telegram user of latest stats (if authenticated). |
 | `reset_period`  | The time after which the missed blocks counter is reset for the session in seconds. |
 | `debug_level`  | Logging level. Can be: _0_ (Minimum - Explicit logging & Errors, _1_ (Info - 0 + Basic logging), _2_ (Verbose - 1 + Verbose logging),  _3_. Transient - 2 + Transient messages.  Not currently used. |
@@ -99,8 +101,8 @@ Open a chat to your bot and use the following:
 - `/start`: Introduction message.
 - `/help`: Get the list of available commands. 
 - `/stats`: Return the current configuration and statistics of the monitoring session.
-- `/switch`: IMMEDIATELY update your signing key to the currently configured backup key.
-- `/new_key <BTS_public_signing_key>`: Set a new backup key in place of the configured one.
+- `/switch`: IMMEDIATELY update your signing key to the new available signing key.
+- `/signing_keys <BTS_public_signing_key1> <BTS_public_signing_key2>`: Set a new list of public keys.
 - `/new_node wss://<api_node_url>`: Set a new API node to connect to.
 - `/threshold X`: Set the missed block threshold before updating signing key to X blocks.
 - `/interval Y`: Set the checking interval to every Y seconds.
@@ -122,7 +124,7 @@ start - Introduction
 help - List all commands
 stats - Gather statistics
 switch - Update signing key to backup
-new_key - Set a new backup key
+signing_keys - Set signing keys
 new_node - Set a new API node to connect to
 threshold - Set the missed block threshold
 interval - Set the checking interval

@@ -20,7 +20,8 @@ function send_stats(recipient_id) {
     const current_stats = witness_monitor.current_statistics();
     let stats = [
         `Total missed blocks: \`${current_stats.total_missed}\``,
-        `Missed blocks in current time window: \`${current_stats.current_missed}\``,
+        `Missed blocks in current time window: \`${current_stats.window_missed}\``,
+        `Current signing key: \`${current_stats.signing_key}\``,
         `Feed publications: `
     ]
     current_stats.feed_publications.forEach(feed_stat => {
@@ -37,7 +38,7 @@ function send_settings(recipient_id) {
         `Node failed connection attempt notification threshold: \`${config.retries_threshold}\``,
         `Missed block threshold: \`${config.missed_block_threshold}\``,
         `Missed block reset time window: \`${config.reset_period} sec\``,
-        `Backup signing key: \`${config.backup_key}\``,
+        `Public signing keys: ${config.witness_signing_keys.map(k => '`' + k + '`').join(', ')}`,
         `Recap time period: \`${config.recap_time} min\``,
         `Feeds to check: \`${config.feeds_to_check}\``,
         `Feed publication treshold: \`${config.feed_publication_threshold} min\``,
@@ -65,8 +66,8 @@ bot.onText(/\/start/, (msg) => {
 bot.onText(/\/help/, (msg) => {
     const help = [
         `\`/stats\`: Return the current configuration and statistics of the monitoring session.`,
-        `\`/switch\`: IMMEDIATELY update your signing key to the currently configured backup key.`,
-        `\`/new_key <BTS_public_signing_key>\`: Set a new backup key in place of the configured one.`,
+        `\`/switch\`: IMMEDIATELY update your signing key to the next available signing key.`,
+        `\`/signing_keys <BTS_public_signing_key1> <BTS_public_signing_key2>\`: Set a new list of public keys.`,
         `\`/new_node wss://<api_node_url>\`: Set a new API node to connect to.`,
         `\`/threshold X\`: Set the missed block threshold before updating signing key to X blocks.`,
         `\`/interval Y\`: Set the checking interval to every Y seconds.`,
@@ -95,14 +96,15 @@ bot.onText(/\/reset/, (msg, match) => {
 
 });
 
-bot.onText(/\/new_key (.+)/, (msg, match) => {
+bot.onText(/\/signing_keys (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
-    const key = match[1];
+    const keys = match[1].split(' ');
 
     if (checkAuthorization(chatId)) {
-        config.backup_key = key;
-        bot.sendMessage(chatId, `Backup signing key set to: ${config.backup_key}`);
+        config.witness_signing_keys = keys;
+        bot.sendMessage(chatId, `Signing keys set to: ${config.witness_signing_keys.map(k => '`' + k + '`').join(', ')}`,
+            { parse_mode: 'Markdown' });
     }
 
 });
