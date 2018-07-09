@@ -19,8 +19,34 @@ function isAuthenticated(chatId) {
     return true;
 }
 
-function send_recap(recipient_id) {
-    bot.sendMessage(recipient_id, witness_monitor.format_recap(), { parse_mode: 'Markdown' });
+function send_stats(recipient_id) {
+    const current_stats = witness_monitor.current_statistics();
+    let stats = [
+        `Total missed blocks: \`${current_stats.total_missed}\``,
+        `Missed blocks in current time window: \`${current_stats.current_missed}\``,
+        `Feed publications: `
+    ]
+    current_stats.feed_publications.forEach(feed_stat => {
+        stats.push(`  - ${feed_stat.toString()}`)
+    });
+    bot.sendMessage(recipient_id, stats.join('\n'), { parse_mode: 'Markdown' });
+}
+
+function send_settings(recipient_id) {
+    const settings = [
+        `API node: \`${config.api_node}\``,
+        `Witness monitored: \`${config.witness_id}\``,
+        `Checking interval: \`${config.checking_interval} sec\``,
+        `Node failed connection attempt notification threshold: \`${config.retries_threshold}\``,
+        `Missed block threshold: \`${config.missed_block_threshold}\``,
+        `Missed block reset time window: \`${config.reset_period} sec\``,
+        `Backup signing key: \`${config.backup_key}\``,
+        `Recap time period: \`${config.recap_time} min\``,
+        `Feeds to check: \`${config.feeds_to_check}\``,
+        `Feed publication treshold: \`${config.feed_publication_threshold} min\``,
+        `Feed check interval: \`${config.feed_checking_interval} min\``,
+    ];
+    bot.setMessage(chatId, settings.join('\n'), { parse_mode: 'Markdown' })
 }
 
 bot.on('polling_error', (error) => {
@@ -183,10 +209,20 @@ bot.onText(/\/interval (.+)/, (msg, match) => {
 });
 
 bot.onText(/\/stats/, (msg, match) => {
+
     const chatId = msg.chat.id;
     
     if (isAuthenticated(chatId)) {
-        send_recap(chatId);
+        send_stats(chatId);
+    }
+});
+
+bot.onText(/\/settings/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    
+    if (isAuthenticated(chatId)) {
+        send_settings(chatId);
     }
     
 });
@@ -230,8 +266,6 @@ bot.onText(/\/feeds (.+)/, (msg, match) => {
  
 });
 
-
-
 bot.onText(/\/pause/, (msg, match) => {
 
     const chatId = msg.chat.id;
@@ -266,6 +300,12 @@ bot.onText(/\/resume/, (msg, match) => {
 
 
 const witness_monitor = new WitnessMonitor(config, logger);
+witness_monitor.on('started', () => {
+    if (admin_id != null) {
+        bot.sendMessage(admin_id, 'Bot (re)started.');
+        send_settings(admin_id);
+    }
+});
 witness_monitor.on('notify', (msg) => {
     if (admin_id != null) {
         bot.sendMessage(admin_id, msg);
@@ -275,7 +315,7 @@ witness_monitor.on('checked', () => {
     if ((admin_id != null) && (config.recap_time > 0)) {
         if (moment().diff(last_recap_send, 'minutes') >= config.recap_time) {
             last_recap_send = moment();
-            send_recap(admin_id);
+            send_stats(admin_id);
         }
     }
 });
