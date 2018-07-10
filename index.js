@@ -2,11 +2,26 @@ process.env["NTBA_FIX_319"] = 1;
 const TelegramBot = require('node-telegram-bot-api');
 const moment = require('moment');
 const config = require('./config.json');
+const validate_config = require('./lib/ValidateConfig.js')
 const Logger = require('./lib/Logger.js');
 const WitnessMonitor = require('./lib/WitnessMonitor.js')
 
 const logger = new Logger(config.debug_level);
 const bot = new TelegramBot(config.telegram_token, {polling: true});
+
+
+function check_config(config) {
+    const validation_result = validate_config(config);
+    if (validation_result !== undefined) {
+        console.log('Invalid configuration file:')
+        for (let field in validation_result) {
+            for (let error of validation_result[field]) {
+                console.log(`  - ${field}: ${error}`);
+            }
+        }
+        process.exit();
+    }
+}
 
 function check_authorization(chatId) {
     if (config.telegram_authorized_users.includes(chatId)) {
@@ -274,6 +289,8 @@ bot.onText(/\/resume/, (msg, match) => {
     }
 
 });
+
+check_config(config);
 
 const witness_monitor = new WitnessMonitor(config, logger);
 var last_recap_send = null;
