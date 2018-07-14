@@ -293,7 +293,7 @@ bot.onText(/\/resume/, (msg, match) => {
 check_config(config);
 
 const witness_monitor = new WitnessMonitor(config, logger);
-var last_recap_send = null;
+var last_recap_send = moment();
 for (let user_id of config.telegram_authorized_users) {
     witness_monitor.on('started', () => {
         bot.sendMessage(user_id, 'Bot (re)started.');
