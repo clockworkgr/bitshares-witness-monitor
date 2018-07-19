@@ -167,3 +167,9 @@ This will pause monitoring.
 `/resume`
 
 This will resume monitoring.
+
+-------------------------------------------------------------------------------------------------------------------
+**DONATIONS WELCOME**
+@
+BTS: clockwork
+EOS: clockworkbts
