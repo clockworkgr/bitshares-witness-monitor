@@ -36,6 +36,7 @@ function send_stats(recipient_id) {
     let stats = [
         `Total missed blocks: \`${current_stats.total_missed}\``,
         `Missed blocks in current time window: \`${current_stats.window_missed}\``,
+        `Total votes: \`${current_stats.total_votes}\` (${current_stats.is_activated ? "active" : "inactive"})`,
         `Current signing key: \`${current_stats.signing_key}\``,
         `Feed publications: `
     ]
