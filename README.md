@@ -100,7 +100,8 @@ Open a chat to your bot and use the following:
 
 - `/start`: Introduction message.
 - `/help`: Get the list of available commands. 
-- `/stats`: Return the current configuration and statistics of the monitoring session.
+- `/stats`: Return the current statistics of the monitoring session.
+- `/settings`: Display current configuration.
 - `/switch`: IMMEDIATELY update your signing key to the new available signing key.
 - `/signing_keys <BTS_public_signing_key1> <BTS_public_signing_key2>`: Set a new list of public keys.
 - `/new_node wss://<api_node_url>`: Set a new API node to connect to.
@@ -123,6 +124,7 @@ Send this to @BotFather `/setcommands` to get completion on commands:
 start - Introduction
 help - List all commands
 stats - Gather statistics
+settings - Display current settings
 switch - Update signing key to backup
 signing_keys - Set signing keys
 new_node - Set a new API node to connect to
