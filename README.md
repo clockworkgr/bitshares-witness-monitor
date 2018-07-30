@@ -117,7 +117,6 @@ Open a chat to your bot and use the following:
 - `/pause` : Pause monitoring.
 - `/resume`: Resume monitoring.
 
-
 Send this to @BotFather `/setcommands` to get completion on commands:
 
 ```
@@ -140,3 +139,8 @@ reset - Reset the missed blocks counter
 pause - Pause monitoring
 resume - Resume monitoring
 ```
+
+**DONATIONS WELCOME**
+@
+BTS: clockwork
+EOS: clockworkbts
