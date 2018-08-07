@@ -1,365 +1,313 @@
 process.env["NTBA_FIX_319"] = 1;
 const TelegramBot = require('node-telegram-bot-api');
-const Logger = require('./lib/Logger.js');
-const {Apis} = require('bitsharesjs-ws');
-const {PrivateKey,TransactionBuilder} = require('bitsharesjs');
+const moment = require('moment');
 const config = require('./config.json');
+const validate_config = require('./lib/ValidateConfig.js')
+const Logger = require('./lib/Logger.js');
+const WitnessMonitor = require('./lib/WitnessMonitor.js')
 
-let apiNode = config.api_node;
-let threshold = config.missed_block_threshold;
-let interval = config.checking_interval ;
-let password= config.telegram_password;
-let backupKey = config.backup_key;
-let timeWindow = config.reset_period;
-let witness = config.witness_id;
-let token = config.telegram_token;
-let privKey = config.private_key;
-let retries = config.retries_threshold;
-let auto_stats = config.recap_time;
+const logger = new Logger(config.debug_level);
+const bot = new TelegramBot(config.telegram_token, {polling: true});
 
-let paused = false;
-let pKey = PrivateKey.fromWif(privKey);
-let logger = new Logger(config.debug_level);
-var to;
-const bot = new TelegramBot(token, {polling: true});
 
-var admin_id = "";
-var total_missed = 0;
-var start_missed = 0;
-var node_retries=0;
-var window_start=0;
-var checking=false;
+function check_config(config) {
+    const validation_result = validate_config(config);
+    if (validation_result !== undefined) {
+        console.log('Invalid configuration file:')
+        for (let field in validation_result) {
+            for (let error of validation_result[field]) {
+                console.log(`  - ${field}: ${error}`);
+            }
+        }
+        process.exit();
+    }
+}
 
-bot.onText(/\/pass (.+)/, (msg, match) => {
+function check_authorization(chatId) {
+    if (config.telegram_authorized_users.includes(chatId)) {
+        bot.sendMessage(chatId, `You (${chatId}) are not authorized.`);
+        return false;
+    }
+    return true;
+}
+
+function send_stats(recipient_id) {
+    const current_stats = witness_monitor.current_statistics();
+    let stats = [
+        `Total missed blocks: \`${current_stats.total_missed}\``,
+        `Missed blocks in current time window: \`${current_stats.window_missed}\``,
+        `Total votes: \`${current_stats.total_votes}\` (${current_stats.is_activated ? "active" : "inactive"})`,
+        `Current signing key: \`${current_stats.signing_key}\``,
+        `Feed publications: `
+    ]
+    current_stats.feed_publications.forEach(feed_stat => {
+        stats.push(`  - ${feed_stat.toString()}`)
+    });
+    bot.sendMessage(recipient_id, stats.join('\n'), { parse_mode: 'Markdown' });
+}
+
+function send_settings(recipient_id) {
+    const settings = [
+        `API node: \`${config.api_node}\``,
+        `Witness monitored: \`${config.witness_id}\``,
+        `Checking interval: \`${config.checking_interval} sec\``,
+        `Node failed connection attempt notification threshold: \`${config.retries_threshold}\``,
+        `Missed block threshold: \`${config.missed_block_threshold}\``,
+        `Missed block reset time window: \`${config.reset_period} sec\``,
+        `Public signing keys: ${config.witness_signing_keys.map(k => '`' + k + '`').join(', ')}`,
+        `Recap time period: \`${config.recap_time} min\``,
+        `Feeds to check: \`${config.feeds_to_check}\``,
+        `Feed publication treshold: \`${config.feed_publication_threshold} min\``,
+        `Feed check interval: \`${config.feed_checking_interval} min\``,
+    ];
+    bot.sendMessage(recipient_id, settings.join('\n'), { parse_mode: 'Markdown' })
+}
+
+bot.on('polling_error', (error) => {
+    logger.error(error);
+});
+
+
+bot.onText(/\/start/, (msg) => {
 
     const chatId = msg.from.id;
-    const pass = match[1];
 
-    if (pass == password) {
-        bot.sendMessage(chatId, 'Password accepted.');
-        admin_id = chatId;
+    if (config.telegram_authorized_users.includes(chatId)) {
+        bot.sendMessage(chatId, `Hello ${msg.from.first_name}, type /help to get the list of commands.`);
     } else {
-        bot.sendMessage(chatId, 'Password incorrect.');
+        bot.sendMessage(chatId, `Hello ${msg.from.first_name}, sorry but there is nothing for you here.`);
     }
-
 });
-bot.onText(/\/changepass (.+)/, (msg, match) => {
 
-    const chatId = msg.from.id;
-    const pass = match[1];
-
-    if (admin_id == chatId) {
-        password=pass;
-        bot.sendMessage(chatId, 'Password changed. Please authenticate again with /pass <new-password>.');
-        admin_id = 0;
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
-    }
-
+bot.onText(/\/help/, (msg) => {
+    const help = [
+        `\`/stats\`: Return the current configuration and statistics of the monitoring session.`,
+        `\`/switch\`: IMMEDIATELY update your signing key to the next available signing key.`,
+        `\`/signing_keys <BTS_public_signing_key1> <BTS_public_signing_key2>\`: Set a new list of public keys.`,
+        `\`/new_node wss://<api_node_url>\`: Set a new API node to connect to.`,
+        `\`/threshold X\`: Set the missed block threshold before updating signing key to X blocks.`,
+        `\`/interval Y\`: Set the checking interval to every Y seconds.`,
+        `\`/interval Y\`: Set the checking interval to every Y seconds.`,
+        `\`/window Z\` : Set the time until missed blocks counter is reset to Z seconds.`,
+        `\`/recap T\` : Set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.`,
+        `\`/retries N\` : Set the threshold for failed API node connection attempts to N times before notifying you in telegram.`,
+        `\`/feed_publication_threshold X\`: Set the feed threshold to X minutes.`,
+        `\`/feed_checking_interval I\`: Set the interval of publication feed check to I minutes.`,
+        `\`/feeds <symbol1> <symbol2> <symbol3> ...\`: Set the feeds to check to the provided list.`,        
+        `\`/reset\` : Reset the missed blocks counter in the current time-window.`,
+        `\`/pause\` : Pause monitoring.`,
+        `\`/resume\`: Resume monitoring.`
+    ];
+    bot.sendMessage(msg.from.id, help.join('\n'), { parse_mode: 'Markdown' });
 });
+
 bot.onText(/\/reset/, (msg, match) => {
 
     const chatId = msg.chat.id;
-    if (admin_id == chatId) {
-        start_missed = total_missed;        
-        window_start=Date.now();
-        bot.sendMessage(chatId, "Session missed block counter set to 0.");
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+
+    if (check_authorization(chatId)) {
+        witness_monitor.reset_missed_block_window();
+        bot.sendMessage(chatId, 'Session missed block counter set to 0.');
     }
 
 });
 
-bot.onText(/\/new_key (.+)/, (msg, match) => {
+bot.onText(/\/signing_keys (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
-    const key = match[1];
-    if (admin_id == chatId) {
-        backupKey = key;
-        bot.sendMessage(chatId, "Backup signing key set to: "+backupKey);
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+    const keys = match[1].split(' ');
+
+    if (check_authorization(chatId)) {
+        config.witness_signing_keys = keys;
+        bot.sendMessage(chatId, `Signing keys set to: ${config.witness_signing_keys.map(k => '`' + k + '`').join(', ')}`,
+            { parse_mode: 'Markdown' });
     }
 
 });
+
 bot.onText(/\/new_node (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const node = match[1];
-    if (admin_id == chatId) {
-        apiNode = node;
-        bot.sendMessage(chatId, "API node set to: "+apiNode);
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+
+    if (check_authorization(chatId)) {
+        config.api_node = node;
+        bot.sendMessage(chatId, `API node set to: ${config.api_node}`);
     }
 
 });
+
 bot.onText(/\/threshold (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const thresh = match[1];
-    if (admin_id == chatId) {
-        threshold = thresh;
-        bot.sendMessage(chatId, "Missed block threshold set to: "+threshold);
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+
+    if (check_authorization(chatId)) {
+        config.missed_block_threshold = thresh;
+        bot.sendMessage(chatId, `Missed block threshold set to: ${config.missed_block_threshold}`);
     }
 
 });
+
 bot.onText(/\/recap (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const recap = match[1];
-    if (admin_id == chatId) {
-        auto_stats = recap;
-        if (auto_stats>0) {
-            bot.sendMessage(chatId, "Recap time period set to: "+auto_stats+" minutes.");
-        }else{
-            bot.sendMessage(chatId, "Recap disabled.");
-        }
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
-    }
 
+    if (check_authorization(chatId)) {
+        config.recap_time = recap;
+        if (config.recap_time > 0) {
+            bot.sendMessage(chatId, `Recap time period set to: ${config.recap_time} minutes.`);
+        } else {
+            bot.sendMessage(chatId, 'Recap disabled.');
+        }
+    }
 });
+
 bot.onText(/\/window (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const wind = match[1];
-    if (admin_id == chatId) {
-        timeWindow = wind;
-        bot.sendMessage(chatId, "Missed block reset time window set to: "+timeWindow+"s");
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+
+    if (check_authorization(chatId)) {
+        config.reset_period = wind;
+        bot.sendMessage(chatId, `Missed block reset time window set to: ${config.reset_period}s`);
     }
 
 });
+
 bot.onText(/\/retries (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const ret = match[1];
-    if (admin_id == chatId) {
-        retries = ret;
-        bot.sendMessage(chatId, "Failed node connection attempt notification threshold set to: "+retries);
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+
+    if (check_authorization(chatId)) {
+        config.retries_threshold = ret;
+        bot.sendMessage(chatId, `Failed node connection attempt notification threshold set to: ${config.retries_threshold}`);
     }
 
 });
+
 bot.onText(/\/interval (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
     const new_int = match[1];
-    if (admin_id == chatId) {
-        interval = new_int;
-        bot.sendMessage(chatId, "Checking interval set to: "+interval+'s.');
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+    
+    if (check_authorization(chatId)) {
+        config.checking_interval = new_int;
+        bot.sendMessage(chatId, `Checking interval set to: ${config.checking_interval}s.`);
     }
-
+ 
 });
+
 bot.onText(/\/stats/, (msg, match) => {
 
     const chatId = msg.chat.id;
-
-    if (admin_id == chatId) {
-        bot.sendMessage(chatId, "Checking interval: `" + interval + ' sec`\n'+
-                                "Node failed connection attempt notification threshold: `" + retries+'`\n'+
-                                "Missed block threshold: `"+threshold+'`\n'+
-                                "Missed block reset time window: `"+timeWindow+" sec`\n"+
-                                "API node: `"+apiNode+'`\n'+
-                                "Backup signing key: `"+backupKey+'`\n'+
-                                "Recap time period: `"+auto_stats+' min`\n'+
-                                "Total missed blocks: `"+total_missed+'`\n'+
-                                "Missed blocks in current time window: `"+(total_missed - start_missed)+'`',{
-                                    parse_mode: "Markdown"
-                                });
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+    
+    if (check_authorization(chatId)) {
+        send_stats(chatId);
     }
-
 });
+
+bot.onText(/\/settings/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    
+    if (check_authorization(chatId)) {
+        send_settings(chatId);
+    }
+    
+});
+
+bot.onText(/\/feed_checking_interval (.+)/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    const new_int = match[1];
+    
+    if (check_authorization(chatId)) {
+        config.feed_checking_interval = new_int;
+        witness_monitor.reset_feed_check();
+        bot.sendMessage(chatId, `Feed checking interval set to: ${config.feed_checking_interval}m.`);
+    }
+ 
+});
+
+bot.onText(/\/feed_publication_threshold (.+)/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    const new_threshold = match[1];
+    
+    if (check_authorization(chatId)) {
+        config.feed_publication_threshold = new_threshold;
+        witness_monitor.reset_feed_check();
+        bot.sendMessage(chatId, `Feed publication threshold set to: ${config.feed_publication_threshold}m.`);
+    }
+ 
+});
+
+bot.onText(/\/feeds (.+)/, (msg, match) => {
+
+    const chatId = msg.chat.id;
+    const new_feeds = match[1].split(' ');
+    
+    if (check_authorization(chatId)) {
+        config.feeds_to_check = new_feeds;
+        witness_monitor.reset_feed_check();
+        bot.sendMessage(chatId, `Feeds to check set to: ${config.feeds_to_check}.`);
+    }
+ 
+});
+
 bot.onText(/\/pause/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (admin_id == chatId) {
-        paused=true;
-        bot.sendMessage(chatId, "Witness monitoring paused. Use /resume to resume monitoring.");
-
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+    if (check_authorization(chatId)) {
+        witness_monitor.pause();
+        bot.sendMessage(chatId, 'Witness monitoring paused. Use /resume to resume monitoring.');
     }
 
 });
+
 bot.onText(/\/switch/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (admin_id == chatId) {
-        bot.sendMessage(chatId, "Attempting to update signing key...");
-        logger.log('Received key update request.');
-        Apis.instance(apiNode, true).init_promise.then(() => {
-            let tr = new TransactionBuilder();
-            tr.add_type_operation("witness_update", {
-                fee: {
-                    amount: 0,
-                    asset_id: '1.3.0'
-                },
-                witness: witness,
-                witness_account: witness_account,
-                new_url: '',
-                new_signing_key: backupKey
-            });
-
-            tr.set_required_fees().then(() => {
-                tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
-                tr.broadcast().then(() => {
-                    logger.log('Signing key updated');
-                    bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
-                    window_start=Date.now();
-                    start_missed = total_missed;
-                    if (paused || !checking) {
-                        Apis.close();
-                    }
-                },() => {
-                    logger.log('Could not broadcast update_witness tx.');
-                    bot.sendMessage(chatId, "Could not broadcast update_witness tx. Please check!");                    
-                    if (paused || !checking) {
-                        Apis.close();
-                    }
-                });
-            });
-        },() => {
-            logger.log('Could not update signing key.');
-            bot.sendMessage(chatId, "Could not update signing key. Please check!");
-        });
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+    if (check_authorization(chatId)) {
+        bot.sendMessage(chatId, 'Attempting to update signing key...');
+        witness_monitor.force_update_signing_key();
     }
 
 });
+
 bot.onText(/\/resume/, (msg, match) => {
 
     const chatId = msg.chat.id;
 
-    if (admin_id == chatId) {
-        paused=false;
-        window_start=Date.now();
-        try {
-            clearTimeout(to);
-            to=setTimeout(checkWitness, interval*1000);
-        }catch(e){
-            to=setTimeout(checkWitness, interval*1000);
-        }
-        bot.sendMessage(chatId, "Witness monitoring resumed.");
-    } else {
-        bot.sendMessage(chatId, "You need to authenticate first.");
+    if (check_authorization(chatId)) {
+        witness_monitor.resume();
+        bot.sendMessage(chatId, 'Witness monitoring resumed.');
     }
 
 });
-logger.log('Starting witness health monitor');
-let first = true;
-checkWitness();
-var witness_account;
-var lastupdate=0;
 
-function checkWitness() {
+check_config(config);
 
-    if (!paused) {
-        checking=true;
-        Apis.instance(apiNode, true).init_promise.then(() => {
-            node_retries=0;
-            logger.log('Connected to API node: ' + apiNode);
-            Apis.instance().db_api().exec('get_objects', [
-                [witness], false
-            ]).then((witness) => {
-                if (first) {
-                    start_missed = witness[0].total_missed;
-                    window_start=Date.now();
-                    first = false;
-                }
-                if ((admin_id!=0) && (auto_stats>0)) {
-                    if (Math.floor((Date.now()-lastupdate)/60000)>=auto_stats) {
-                        lastupdate=Date.now();
-                        bot.sendMessage(admin_id, "Checking interval: `" + interval + ' sec`\n'+
-                                                    "Node failed connection attempt notification threshold: `" + retries+'`\n'+
-                                                    "Missed block threshold: `"+threshold+'`\n'+
-                                                    "Missed block reset time window: `"+timeWindow+" sec`\n"+
-                                                    "API node: `"+apiNode+'`\n'+
-                                                    "Backup signing key: `"+backupKey+'`\n'+
-                                                    "Recap time period: `"+auto_stats+' min`\n'+
-                                                    "Total missed blocks: `"+total_missed+'`\n'+
-                                                    "Missed blocks in current time window: `"+(total_missed - start_missed)+'`',{
-                                                        parse_mode: "Markdown"
-                                                    });
-                    }
-                }
-                total_missed = witness[0].total_missed;
-                if (Math.floor((Date.now()-window_start)/1000)>=timeWindow) {
-                    window_start=Date.now();
-                    start_missed=total_missed;
-                }
-                let missed = total_missed - start_missed;
-                witness_account = witness[0].witness_account;
-                logger.log('Total missed blocks: ' + total_missed);
-                logger.log('Missed since time window start: ' + missed);
-                if (missed > threshold) {
-                    logger.log('Missed blocks since time window start (' + missed + ') greater than threshold (' + threshold + '). Notifying...');
-                    logger.log('Switching to backup witness server.');                    
-                    bot.sendMessage(admin_id, 'Missed blocks since start (' + missed + ') greater than threshold (' + threshold + ').');
-                    bot.sendMessage(admin_id, 'Switching to backup witness server.');
-                    let tr = new TransactionBuilder();
-                    tr.add_type_operation("witness_update", {
-                        fee: {
-                            amount: 0,
-                            asset_id: '1.3.0'
-                        },
-                        witness: witness,
-                        witness_account: witness_account,
-                        new_url: '',
-                        new_signing_key: backupKey
-                    });
-
-                    tr.set_required_fees().then(() => {
-                        tr.add_signer(pKey, pKey.toPublicKey().toPublicKeyString());
-                        tr.broadcast().then(() => {
-                            logger.log('Signing key updated');
-                            bot.sendMessage(chatId, "Signing key updated. Use /new_key to set the next backup key.");
-                            first = true;
-                            to=setTimeout(checkWitness, interval*1000);                        
-                            Apis.close();
-                            checking=false;
-                        },() => {
-                            logger.log('Could not broadcast update_witness tx.');
-                            bot.sendMessage(chatId, "Could not broadcast update_witness tx. Please check!");
-                            //first = true;
-                            to=setTimeout(checkWitness, interval*1000);                        
-                            Apis.close();
-                            checking=false;
-                        });
-                    });
-
-                } else {
-                    logger.log('Status: OK');
-                    to=setTimeout(checkWitness, interval*1000);                    
-                    Apis.close();
-                    checking=false;
-                }
-            });
-        
-        }, () => {        
-        
-            node_retries++;
-            logger.log('API node unavailable.');
-            if (node_retries>retries) {
-                logger.log('Unable to connect to API node for '+node_retries+' times. Notifying...');
-                bot.sendMessage(admin_id, 'Unable to connect to API node for '+node_retries+' times. Please check.');
-            }
-            to=setTimeout(checkWitness, interval*1000);            
-        
-            Apis.close();
-            checking=false;
-        });
-    }
+const witness_monitor = new WitnessMonitor(config, logger);
+var last_recap_send = moment();
+for (let user_id of config.telegram_authorized_users) {
+    witness_monitor.on('started', () => {
+        bot.sendMessage(user_id, 'Bot (re)started.');
+        send_settings(user_id);
+    });
+    witness_monitor.on('notify', (msg) => {
+        bot.sendMessage(user_id, msg);
+    });
+    witness_monitor.on('checked', () => {
+        if (config.recap_time > 0 && moment().diff(last_recap_send, 'minutes') >= config.recap_time) {
+            last_recap_send = moment();
+            send_stats(user_id);
+        }
+    });
 }
+witness_monitor.start_monitoring();

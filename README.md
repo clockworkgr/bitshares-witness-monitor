@@ -23,52 +23,38 @@ Open config-sample.json in your favourite text editor and edit with your own set
     "private_key": "5kTSOMEPRIVATEKEY111111111111",
     "missed_block_threshold": 3,
     "checking_interval": 10,
-    "backup_key": "BTSXXXXXXXXXXXXXXXXXX",
+    "reset_period": 300,
+    "witness_signing_keys": [ "BTSXXXXXXXXXXXXXXXXXX", "BTSYYYYYYYYYYYYYYY"],
     "recap_time": 60,
-    "reset_period": 300
     "debug_level": 3,
     "telegram_token": "<telegram_access_token>",
-    "telegram_password": "<chosen_access_password>",
-    "retries_threshold": 3
+    "telegram_authorized_users": ["<user_id>"],
+    "retries_threshold": 3,
+    "feeds_to_check" : ["<mpa_asset>"],
+    "feed_publication_threshold": 60,
+    "feed_checking_interval": 10
 }
 ``` 
   
 and then save as config.json
 
-`private_key`  
-The active key of your normal witness-owning account used to sign the witness_update operation.
-
-`missed_block_threshold`  
-How many blocks must be missed within a `reset_period` sec window before the script switches your signing key. Recommend to set at 2 or higher since 1 will possibly trigger updates on maintenance intervals (see: https://github.com/bitshares/bitshares-core/issues/504)
-
-`checking_interval`  
-How often should the script check for new missed blocks in seconds.
-
-`backup_key`  
-The public signing key of your backup witness to be used when switching.
-
-`recap_time`  
-The interval in minutes on which bot will auto-notify telegram user of latest stats (if authenticated).
-
-`reset_period`  
-The time after which the missed blocks counter is reset for the session in seconds.
-
-`debug_level`  
-Logging level. Can be:  
-0: Minimum - Explicit logging & Errors  
-1: Info - 0 + Basic logging  
-2: Verbose - 1 + Verbose logging  
-3: Transient - 2 + Transient messages  
-but not currently used.
-
-`telegram_token`  
-The telegram access token for your notifications bot. You can get one here: https://telegram.me/BotFather
-
-`telegram_password`  
-Your chosen access password through telegram.
-
-`retries_threshold`  
-Number of failed connections to API node before the bot notifies you on telegram.
+| Key | Description |
+| --- | --- |
+| `witness_id` | The id of the witness to monitor. |
+| `api_node` | Bitshares Websocket url to use to retrieve blockchain information. |
+| `private_key`  | The active key of your normal witness-owning account used to sign the witness_update operation. |
+| `missed_block_threshold`  | How many blocks must be missed within a `reset_period` sec window before the script switches your signing key. Recommend to set at 2 or higher since 1 will possibly trigger updates on maintenance intervals (see [bitshares-core#504](https://github.com/bitshares/bitshares-core/issues/504)). |
+| `checking_interval` | How often should the script check for new missed blocks in seconds. |
+| `witness_signing_keys`  | All the public keys of your witness, to switch key if too many blocks are missed. |
+| `recap_time`  | The interval in minutes on which bot will auto-notify telegram user of latest stats (if authenticated). |
+| `reset_period`  | The time after which the missed blocks counter is reset for the session in seconds. |
+| `debug_level`  | Logging level. Can be: _0_ (Minimum - Explicit logging & Errors, _1_ (Info - 0 + Basic logging), _2_ (Verbose - 1 + Verbose logging),  _3_. Transient - 2 + Transient messages.  Not currently used. |
+| `telegram_token`  | The telegram access token for your notifications bot. You can create one with [BotFather](https://telegram.me/BotFather). |
+| `telegram_authorized_users` | List of userId authorized to interact with the bot. You can get your user Id by talking to the bot, or use a bot like [@userinfobot](https://telegram.me/userinfobot). |
+| `retries_threshold`  | Number of failed connections to API node before the bot notifies you on telegram. |
+| `feeds_to_check`| Array of assets symbols where the price publication should be checked. |
+| `feed_publication_threshold` | How many minutes before a feed is considered as missing. |
+| `feed_checking_interval` | How often should the script check for unpublished feeds. | 
 
 ## Running
 
@@ -112,63 +98,48 @@ This will build the image, then run it with `./config.json` file mounted in the 
 
 Open a chat to your bot and use the following:
 
-`/pass <your_configured_telegram_pass>`
+- `/start`: Introduction message.
+- `/help`: Get the list of available commands. 
+- `/stats`: Return the current statistics of the monitoring session.
+- `/settings`: Display current configuration.
+- `/switch`: IMMEDIATELY update your signing key to the new available signing key.
+- `/signing_keys <BTS_public_signing_key1> <BTS_public_signing_key2>`: Set a new list of public keys.
+- `/new_node wss://<api_node_url>`: Set a new API node to connect to.
+- `/threshold X`: Set the missed block threshold before updating signing key to X blocks.
+- `/interval Y`: Set the checking interval to every Y seconds.
+- `/window Z` : Set the time until missed blocks counter is reset to Z seconds.
+- `/recap T` : Set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.
+- `/retries N` : Set the threshold for failed API node connection attempts to N times before notifying you in telegram.
+- `/feed_publication_threshold X`: Set the feed threshold to X minutes.
+- `/feed_checking_interval I`: Set the interval of publication feed check to I minutes.
+- `/feeds <symbol1> <symbol2> <symbol3> ...`: Set the feeds to check to the provided list.
+- `/reset` : Reset the missed blocks counter in the current time-window.
+- `/pause` : Pause monitoring.
+- `/resume`: Resume monitoring.
 
-This is required to authenticate. Otherwise none of the following commands will work.
+Send this to @BotFather `/setcommands` to get completion on commands:
 
-`/changepass <new_password>`
+```
+start - Introduction
+help - List all commands
+stats - Gather statistics
+settings - Display current settings
+switch - Update signing key to backup
+signing_keys - Set signing keys
+new_node - Set a new API node to connect to
+threshold - Set the missed block threshold
+interval - Set the checking interval
+window - Set the time until missed blocks counter is reset
+recap - Set the auto-notification interval of latest stats
+retries - Set the threshold for failed API node connection attempts 
+feed_publication_threshold - Set the feed threshold
+feed_checking_interval - Set the interval of publication feed check
+feeds - Set the feeds to check
+reset - Reset the missed blocks counter
+pause - Pause monitoring
+resume - Resume monitoring
+```
 
-This will update your telegram access password and will require you to authenticate again using `/pass`
-
-`/stats`
-
-This will return the current configuration and statistics of the monitoring session.
-
-`/switch`
-
-This will IMMEDIATELY update your signing key to the currently configured backup key.
-
-`/new_key <BTS_public_signing_key>`
-
-This will set a new backup key in place of the configured one.
-
-`/new_node wss://<api_node_url>`
-
-This will set a new API node to connect to.
-
-`/threshold X`
-
-This will set the missed block threshold before updating signing key to X blocks.
-
-`/interval Y`
-
-This will set the checking interval to every Y seconds.
-
-`/window Z`
-
-This will set the time until missed blocks counter is reset to Z seconds.
-
-`/recap T`
-
-This will set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.
-
-`/retries N`
-
-This will set the threshold for failed API node connection attempts to N times before notifying you in telegram.
-
-`/reset`
-
-This will reset the missed blocks counter in the current time-window.
-
-`/pause`
-
-This will pause monitoring.
-
-`/resume`
-
-This will resume monitoring.
-
--------------------------------------------------------------------------------------------------------------------
 **DONATIONS WELCOME**
 @
 BTS: clockwork
