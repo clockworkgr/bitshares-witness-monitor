@@ -19,7 +19,8 @@ const valid_config = {
     "retries_threshold": 3,
     "feeds_to_check" : ["HERTZ", "USD"],
     "feed_publication_threshold": 60,
-    "feed_checking_interval": 10
+    "feed_checking_interval": 10,
+    "stale_blockchain_threshold": 10
 }
 
 
