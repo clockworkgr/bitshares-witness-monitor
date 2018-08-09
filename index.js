@@ -24,7 +24,7 @@ function check_config(config) {
 }
 
 function check_authorization(chatId) {
-    if (config.telegram_authorized_users.includes(chatId)) {
+    if (!config.telegram_authorized_users.includes(chatId.toString())) {
         bot.sendMessage(chatId, `You (${chatId}) are not authorized.`);
         return false;
     }
@@ -72,7 +72,7 @@ bot.onText(/\/start/, (msg) => {
 
     const chatId = msg.from.id;
 
-    if (config.telegram_authorized_users.includes(chatId)) {
+    if (config.telegram_authorized_users.includes(chatId.toString())) {
         bot.sendMessage(chatId, `Hello ${msg.from.first_name}, type /help to get the list of commands.`);
     } else {
         bot.sendMessage(chatId, `Hello ${msg.from.first_name}, sorry but there is nothing for you here.`);
