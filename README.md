@@ -32,7 +32,8 @@ Open config-sample.json in your favourite text editor and edit with your own set
     "retries_threshold": 3,
     "feeds_to_check" : ["<mpa_asset>"],
     "feed_publication_threshold": 60,
-    "feed_checking_interval": 10
+    "feed_checking_interval": 10,
+    "stale_blockchain_threshold": 10
 }
 ``` 
   
@@ -55,6 +56,7 @@ and then save as config.json
 | `feeds_to_check`| Array of assets symbols where the price publication should be checked. |
 | `feed_publication_threshold` | How many minutes before a feed is considered as missing. |
 | `feed_checking_interval` | How often should the script check for unpublished feeds. | 
+| `stale_blockchain_threshold` | How many seconds before a node is considered desynchronized (should be more than block time).| 
 
 ## Running
 

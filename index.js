@@ -52,6 +52,7 @@ function send_settings(recipient_id) {
         `Witness monitored: \`${config.witness_id}\``,
         `Checking interval: \`${config.checking_interval} sec\``,
         `Node failed connection attempt notification threshold: \`${config.retries_threshold}\``,
+        `Desynchronization threshold: \`${config.stale_blockchain_threshold}\` sec`,
         `Missed block threshold: \`${config.missed_block_threshold}\``,
         `Missed block reset time window: \`${config.reset_period} sec\``,
         `Public signing keys: ${config.witness_signing_keys.map(k => '`' + k + '`').join(', ')}`,
