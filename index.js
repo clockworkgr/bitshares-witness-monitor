@@ -57,11 +57,14 @@ function send_settings(recipient_id) {
         `Missed block reset time window: \`${config.reset_period} sec\``,
         `Public signing keys: ${config.witness_signing_keys.map(k => '`' + k + '`').join(', ')}`,
         `Recap time period: \`${config.recap_time} min\``,
-        `Feeds to check: \`${config.feeds_to_check}\``,
-        `Feed publication treshold: \`${config.feed_publication_threshold} min\``,
+        `Feeds to check: \`${describe_feeds_to_check(config.feeds_to_check)}\``,
         `Feed check interval: \`${config.feed_checking_interval} min\``,
     ];
     bot.sendMessage(recipient_id, settings.join('\n'), { parse_mode: 'Markdown' })
+}
+
+function describe_feeds_to_check(feeds_to_check) {
+    return Object.entries(feeds_to_check).map(e => `${e[0]} (${e[1]} min)`).join(', ')
 }
 
 bot.on('polling_error', (error) => {
@@ -92,9 +95,8 @@ bot.onText(/\/help/, (msg) => {
         `\`/window Z\` : Set the time until missed blocks counter is reset to Z seconds.`,
         `\`/recap T\` : Set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.`,
         `\`/retries N\` : Set the threshold for failed API node connection attempts to N times before notifying you in telegram.`,
-        `\`/feed_publication_threshold X\`: Set the feed threshold to X minutes.`,
         `\`/feed_checking_interval I\`: Set the interval of publication feed check to I minutes.`,
-        `\`/feeds <symbol1> <symbol2> <symbol3> ...\`: Set the feeds to check to the provided list.`,        
+        `\`/feeds <symbol1>:<threshold1> <symbol2>:<threshold2> ...\`: Set the feeds (and their threshold in minutes) to check to the provided list.`,        
         `\`/reset\` : Reset the missed blocks counter in the current time-window.`,
         `\`/pause\` : Pause monitoring.`,
         `\`/resume\`: Resume monitoring.`
@@ -233,28 +235,20 @@ bot.onText(/\/feed_checking_interval (.+)/, (msg, match) => {
  
 });
 
-bot.onText(/\/feed_publication_threshold (.+)/, (msg, match) => {
-
-    const chatId = msg.chat.id;
-    const new_threshold = match[1];
-    
-    if (check_authorization(chatId)) {
-        config.feed_publication_threshold = new_threshold;
-        witness_monitor.reset_feed_check();
-        bot.sendMessage(chatId, `Feed publication threshold set to: ${config.feed_publication_threshold}m.`);
-    }
- 
-});
-
 bot.onText(/\/feeds (.+)/, (msg, match) => {
 
     const chatId = msg.chat.id;
-    const new_feeds = match[1].split(' ');
+    // Argument format: asset:threshold asset:threshold
+    const new_feeds = match[1].split(' ').reduce((map, obj) => {
+        const [ asset_name, threshold ] = obj.split(':') 
+        map[asset_name] = parseInt(threshold)
+        return map
+    }, {});
     
     if (check_authorization(chatId)) {
         config.feeds_to_check = new_feeds;
         witness_monitor.reset_feed_check();
-        bot.sendMessage(chatId, `Feeds to check set to: ${config.feeds_to_check}.`);
+        bot.sendMessage(chatId, `Feeds to check set to: ${describe_feeds_to_check(config.feeds_to_check)}.`);
     }
  
 });

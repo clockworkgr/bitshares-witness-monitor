@@ -30,8 +30,10 @@ Open config-sample.json in your favourite text editor and edit with your own set
     "telegram_token": "<telegram_access_token>",
     "telegram_authorized_users": ["<user_id>"],
     "retries_threshold": 3,
-    "feeds_to_check" : ["<mpa_asset>"],
-    "feed_publication_threshold": 60,
+    "feeds_to_check" : {
+        "USD": 60,
+        "CNY": 120,
+    },
     "feed_checking_interval": 10,
     "stale_blockchain_threshold": 10
 }
@@ -53,8 +55,7 @@ and then save as config.json
 | `telegram_token`  | The telegram access token for your notifications bot. You can create one with [BotFather](https://telegram.me/BotFather). |
 | `telegram_authorized_users` | List of userId authorized to interact with the bot. You can get your user Id by talking to the bot, or use a bot like [@userinfobot](https://telegram.me/userinfobot). |
 | `retries_threshold`  | Number of failed connections to API node before the bot notifies you on telegram. |
-| `feeds_to_check`| Array of assets symbols where the price publication should be checked. |
-| `feed_publication_threshold` | How many minutes before a feed is considered as missing. |
+| `feeds_to_check`| Dictionary of assets symbols (and their respective tolerated max age in minutes) which price publication should be checked. |
 | `feed_checking_interval` | How often should the script check for unpublished feeds. | 
 | `stale_blockchain_threshold` | How many seconds before a node is considered desynchronized (should be more than block time).| 
 
@@ -112,9 +113,8 @@ Open a chat to your bot and use the following:
 - `/window Z` : Set the time until missed blocks counter is reset to Z seconds.
 - `/recap T` : Set the auto-notification interval of latest stats to every T minutes. Set to 0 to disable.
 - `/retries N` : Set the threshold for failed API node connection attempts to N times before notifying you in telegram.
-- `/feed_publication_threshold X`: Set the feed threshold to X minutes.
 - `/feed_checking_interval I`: Set the interval of publication feed check to I minutes.
-- `/feeds <symbol1> <symbol2> <symbol3> ...`: Set the feeds to check to the provided list.
+- `/feeds <symbol1>:<threshold1> <symbol2>:<threshold2> ...`: Set the feeds (and their threshold) to check to the provided list.
 - `/reset` : Reset the missed blocks counter in the current time-window.
 - `/pause` : Pause monitoring.
 - `/resume`: Resume monitoring.
@@ -134,7 +134,6 @@ interval - Set the checking interval
 window - Set the time until missed blocks counter is reset
 recap - Set the auto-notification interval of latest stats
 retries - Set the threshold for failed API node connection attempts 
-feed_publication_threshold - Set the feed threshold
 feed_checking_interval - Set the interval of publication feed check
 feeds - Set the feeds to check
 reset - Reset the missed blocks counter
