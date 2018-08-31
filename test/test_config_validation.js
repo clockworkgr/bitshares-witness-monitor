@@ -17,8 +17,10 @@ const valid_config = {
     "telegram_token": "XXXXXXX:YYYYYYYYYY",
     "telegram_authorized_users": ["1234"],
     "retries_threshold": 3,
-    "feeds_to_check" : ["HERTZ", "USD"],
-    "feed_publication_threshold": 60,
+    "feeds_to_check" : {
+        "HERTZ": 60, 
+        "USD": 30
+    },
     "feed_checking_interval": 10,
     "stale_blockchain_threshold": 10
 }
@@ -80,6 +82,25 @@ describe('#validate_config()', function() {
         var config = Object.assign({}, valid_config);
         config.witness_signing_keys = [ 'BTSXXXXXXXXXX', 'BTCXXXXXXXX'];
         assert('witness_signing_keys' in validate_config(config));
+    });
+
+    it('should detect feed check configured as non object', function() {
+        var config = Object.assign({}, valid_config);
+        config.feeds_to_check = 'AMAZONCOM';
+        assert('feeds_to_check' in validate_config(config));
+    });
+
+
+    it('should detect feed check configured as array', function() {
+        var config = Object.assign({}, valid_config);
+        config.feeds_to_check = [ 'AMAZONCOM', 'USD' ];
+        assert('feeds_to_check' in validate_config(config));
+    });
+
+    it('should detect feed check configured with invalid threshold', function() {
+        var config = Object.assign({}, valid_config);
+        config.feeds_to_check = { 'AMAZONCOM': 'blabla', 'USD': 40 };
+        assert('feeds_to_check' in validate_config(config));
     });
 
 });

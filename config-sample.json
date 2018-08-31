@@ -11,8 +11,7 @@
     "telegram_token": "",
     "telegram_authorized_users": [],
     "retries_threshold": 3,
-    "feeds_to_check" : [],
-    "feed_publication_threshold": 60,
+    "feeds_to_check" : {},
     "feed_checking_interval": 10,
     "stale_blockchain_threshold": 10
 }
